@@ -15,7 +15,7 @@
     /* Flat page surfaces only — no gradients anywhere. The game card sits one
        step lighter/darker than the page so it reads as elevated. */
     :root {
-      --page-bg: #d7dde1b5;
+      --page-bg: #b0b8bdc5;
       --page-fg: #64748b;
       --panel-line: #94a3b8;
       --panel-fill: rgba(100, 116, 139, .1);
@@ -70,26 +70,23 @@
          card shadow and border via its theme palette. */
     }
 
-    .controls {
-      width: 100%;
-      max-width: 560px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: .5rem;
-      justify-content: center;
-    }
-    .controls button {
+    /* #controls is projected into the game's own "host-controls" slot, right
+       next to its built-in theme toggle — on the idle/start screen and then in
+       the HUD once play begins. Compact pill buttons fit both. */
+    #controls { display: flex; gap: .35rem; }
+    #controls button {
       cursor: pointer;
       border: 1px solid var(--panel-line);
       background: var(--panel-fill);
       color: inherit;
-      border-radius: 8px;
-      padding: .4rem .8rem;
-      font-size: .8rem;
+      border-radius: 999px;
+      padding: .3rem .55rem;
+      font-family: inherit;
+      font-size: .75rem;
       font-weight: 600;
       transition: background .15s, border-color .15s, opacity .15s;
     }
-    .controls button:hover { opacity: .7; }
+    #controls button:hover { opacity: .75; }
 
     #mode-hint {
       width: 100%;
@@ -128,10 +125,9 @@
     ilerle. Dokun: <b>✕ → 🏰 → boş</b>.
   </p>
 
-  <div class="controls">
-    <button id="toggle-mode">Modu Değiştir (levels/random)</button>
-    <button id="toggle-theme">Tema: Koyu/Açık</button>
-    <button id="toggle-mute">Sesi Aç/Kapat</button>
+  <div id="controls">
+    <button id="toggle-mode">Mod: Seviyeler</button>
+    <button id="toggle-mute">Ses: Açık 🔊</button>
   </div>
 
   <script type="module">
@@ -145,6 +141,13 @@
       try { game.state = JSON.parse(saved); } catch (_) {}
     }
 
+    // #controls is projected into the game's own "host-controls" slot from the
+    // start: next to the built-in theme toggle on the idle screen first, then
+    // inside the HUD once play begins (same slot, so it stays put).
+    const controls = document.getElementById('controls');
+    controls.setAttribute('slot', 'host-controls');
+    game.appendChild(controls);
+
     // The hint only makes sense before play begins — hide it once the level starts.
     const modeHint = document.getElementById('mode-hint');
     game.addEventListener('og-level-start', () => { modeHint.style.display = 'none'; }, { once: true });
@@ -153,36 +156,30 @@
       sessionStorage.setItem('octafort-state', JSON.stringify(e.detail.state));
     });
 
+    // The theme toggle lives inside the game; the page mirrors it so the whole
+    // surface flips together instead of just the game card.
+    game.addEventListener('og-theme-change', (e) => {
+      document.body.classList.toggle('theme-dark', e.detail.theme === 'dark');
+      sessionStorage.setItem('octafort-theme', e.detail.theme);
+    });
+
     const modeBtn = document.getElementById('toggle-mode');
-    const themeBtn = document.getElementById('toggle-theme');
     const muteBtn = document.getElementById('toggle-mute');
 
     function updateModeButton() {
       modeBtn.textContent = game.mode === 'levels' ? 'Mod: Seviyeler' : 'Mod: Rastgele';
-    }
-    function updateThemeButton() {
-      themeBtn.textContent = game.theme === 'dark' ? 'Tema: Koyu 🌙' : 'Tema: Açık ☀️';
     }
     function updateMuteButton() {
       muteBtn.textContent = game.muted ? 'Ses: Kapalı 🔇' : 'Ses: Açık 🔊';
     }
 
     updateModeButton();
-    updateThemeButton();
     updateMuteButton();
 
     modeBtn.addEventListener('click', () => {
       sessionStorage.removeItem('octafort-state');
       sessionStorage.setItem('octafort-mode', game.mode === 'levels' ? 'random' : 'levels');
       location.reload();
-    });
-
-    themeBtn.addEventListener('click', () => {
-      const next = game.theme === 'dark' ? 'light' : 'dark';
-      game.theme = next;
-      document.body.classList.toggle('theme-dark', next === 'dark');
-      sessionStorage.setItem('octafort-theme', next);
-      updateThemeButton();
     });
 
     muteBtn.addEventListener('click', () => {
