@@ -4,8 +4,10 @@ import {
   GameState,
   LevelResult,
   Localized,
+  SettingsMenuController,
   i18nStyles,
-  renderLanguagePicker,
+  renderSettingsMenu,
+  settingsMenuStyles,
 } from '@octapull-games/core';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -227,31 +229,38 @@ function regionHue(region: number): number {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export class OctafortGame extends Localized(LitElement) {
-  static styles = [i18nStyles, css`
+  static styles = [i18nStyles, settingsMenuStyles, css`
     *, *::before, *::after { box-sizing: border-box; }
 
     :host {
       /* Internal themed palette. The public --og-* variables always win when
          the host page sets them; these only supply theme-aware fallbacks so
          the component looks right in a light or dark modal with zero config. */
-      /* Midnight Slate — soft deep navy, no pure black, no neon glow. */
-      --_bg: #1e293b;        /* card */
-      --_surface: #0f172a;   /* grid, inset a step deeper than the card */
-      --_text: #f8fafc;
-      --_text-dim: #94a3b8;
+      /* Octameet greys — the component is embedded in Octameet's right-hand
+         "Uygulamalar" panel, so the dark theme sits in the same neutral family
+         as that panel. Surfaces separate by getting *lighter* than the base,
+         not darker, which is what keeps the card readable inside the panel. */
+      --_bg: #404040;        /* card — matches the Octameet panel base */
+      --_surface: #515151;   /* grid, one step lighter than the card */
+      --_text: #ffffff;
+      --_text-dim: #dedede;
       --_wall: #06d3f7;      /* sector ramparts — turquoise */
-      --_border: #334155;
+      --_border: #5c5c5c;
       --_shadow: 0 20px 25px -5px rgba(0,0,0,.4), 0 8px 10px -6px rgba(0,0,0,.3);
-      --_line: rgba(255,255,255,.10);
-      --_fill: rgba(255,255,255,.06);
-      --_fill-soft: rgba(255,255,255,.03);
-      --_fill-strong: rgba(255,255,255,.10);
-      --_grid-line: rgba(148,163,184,.14);
-      --_dot: rgba(148,163,184,.32);
+      --_line: #5c5c5c;
+      --_fill: #5c5c5c;        /* buttons, chips, secondary surfaces */
+      --_fill-soft: #515151;
+      --_track: #363636;   /* cukur yuzey: ilerleme cubugu izi.
+                              Vurgu dolgusu #5c5c5c iz uzerinde 2.2:1'e
+                              dusuyordu; koyu iz onu 3.9:1'e cikarir. */
+      --_fill-strong: #6b6b6b; /* hover/active — one step above --_fill so the
+                                  state stays visible on a flat palette */
+      --_grid-line: rgba(255,255,255,.16);
+      --_dot: rgba(255,255,255,.38);
 
       /* Accents are shared by both themes (Octapull orange + soft sapphire). */
       --_primary: #3b82f6;
-      --_accent: #ff5b00;
+      --_accent: #ff5f00;   /* Octameet turuncusu */
 
       display: block;
       box-sizing: border-box;
@@ -282,6 +291,7 @@ export class OctafortGame extends Localized(LitElement) {
       --_fill: rgba(15,23,42,.05);
       --_fill-soft: rgba(15,23,42,.03);
       --_fill-strong: rgba(15,23,42,.07);
+      --_track: rgba(15,23,42,.05);
       --_grid-line: rgba(15,23,42,.10);
       --_dot: rgba(15,23,42,.26);
     }
@@ -350,14 +360,14 @@ export class OctafortGame extends Localized(LitElement) {
     .progress-track {
       height: 10px;
       border-radius: 999px;
-      background: var(--_fill);
+      background: var(--_track, var(--_fill));
       overflow: hidden;
       margin-bottom: .9rem;
     }
     .progress-fill {
       height: 100%;
       border-radius: inherit;
-      background: linear-gradient(90deg, var(--og-accent, var(--_accent)), var(--og-primary, var(--_primary)));
+      background: var(--og-accent, var(--_accent));
       transition: width .25s ease;
     }
 
@@ -481,7 +491,9 @@ export class OctafortGame extends Localized(LitElement) {
     .overlay .emoji { font-size: 3rem; }
     /* Başlangıç ekranında da tema düğmesi ve host düğmeleri aynı yerde dursun;
        oyun başlayınca aynı slot HUD'a taşınır, düğmeler yerinden oynamaz. */
-    .overlay-top { display: flex; justify-content: center; align-items: center; gap: .4rem; flex-wrap: wrap; }
+    /* Ayar düğmesi açılış ekranında da HUD'daki yerinde durur: oyuncu tek bir
+       köşeyi öğrenir, ekran değişince aramak zorunda kalmaz. */
+    .overlay-top { display: flex; justify-content: flex-end; align-items: center; }
     .legend {
       display: flex;
       gap: 1.1rem;
@@ -503,9 +515,11 @@ export class OctafortGame extends Localized(LitElement) {
       align-items: center;
       justify-content: center;
       border-radius: inherit;
-      background: rgba(4, 10, 20, .58);
+      background: rgba(26, 26, 26, .58);
       backdrop-filter: blur(3px);
-      z-index: 5;
+      /* Kart içindeki her şeyin üstünde: açık kalmış ayar menüsü (z-index 60)
+         tur biterken sonuç penceresinin önüne geçmemeli. */
+      z-index: 999;
       padding: 1.5rem;
       animation: fadeIn .25s ease;
     }
@@ -538,14 +552,12 @@ export class OctafortGame extends Localized(LitElement) {
       min-width: 92px;
       padding: .7rem .9rem;
       border-radius: 14px;
-      background: linear-gradient(160deg, var(--_fill-strong), var(--_fill-soft));
+      background: var(--_fill);
       border: 1px solid var(--_line);
       animation: popIn .35s cubic-bezier(.34,1.56,.64,1) both;
     }
-    .stat-card.is-best {
-      border-color: var(--og-accent, var(--_accent));
-      box-shadow: 0 0 0 1px var(--og-accent, var(--_accent)), 0 0 18px rgba(255,91,0,.3);
-    }
+    /* Rekor, süre kartını turuncu çerçeveyle işaretlemek yerine yalnızca
+       aşağıdaki "🌟 Yeni rekor" rozetiyle duyurulur — iki kart aynı kalır. */
     .stat-card:nth-child(2) { animation-delay: .08s; }
     .stat-icon { font-size: 1.3rem; line-height: 1; }
     .stat-value {
@@ -553,10 +565,7 @@ export class OctafortGame extends Localized(LitElement) {
       font-weight: 800;
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
-      background: linear-gradient(135deg, var(--og-accent, var(--_accent)), var(--og-primary, var(--_primary)));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      color: var(--og-text, var(--_text));
     }
     .stat-label {
       font-size: .65rem;
@@ -635,6 +644,7 @@ export class OctafortGame extends Localized(LitElement) {
   private _winTimer = 0;
   private _focusPending = false;
   private _ctx: AudioContext | null = null;
+  private _settings = new SettingsMenuController(this);
 
   private _onVisibility = () => {
     if (document.hidden) {
@@ -956,19 +966,19 @@ export class OctafortGame extends Localized(LitElement) {
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
-  private _renderThemeToggle() {
-    const isLight = this.theme === 'light';
-    return html`
-      <button
-        class="theme-toggle"
-        part="theme-toggle"
-        type="button"
-        @click=${this._toggleTheme}
-        aria-pressed=${isLight.toString()}
-        aria-label=${this.t(isLight ? 'common.switchToDark' : 'common.switchToLight')}
-        title=${this.t(isLight ? 'common.themeDarkTitle' : 'common.themeLightTitle')}
-      >${isLight ? '☀️' : '🌙'} ${this.t(isLight ? 'common.themeLight' : 'common.themeDark')}</button>
-    `;
+  /**
+   * Dil, tema ve host sayfanın kendi düğmeleri (mod, ses) üst barda yan yana
+   * durmak yerine sağ üstteki üç nokta düğmesinin altında toplanır. Açılış
+   * ekranı ile HUD aynı bileşeni kullanır.
+   */
+  private _renderSettings() {
+    return renderSettingsMenu({
+      locale: this.locale,
+      open: this._settings.open,
+      onTrigger: this._settings.toggle,
+      theme: this.theme,
+      onThemeToggle: () => this._toggleTheme(),
+    });
   }
 
   private _renderHUD() {
@@ -981,20 +991,18 @@ export class OctafortGame extends Localized(LitElement) {
     return html`
       <div class="hud" part="hud">
         <div class="hud-group">
-          ${renderLanguagePicker(this.locale)}
-          ${this._renderThemeToggle()}
-          <slot name="host-controls"></slot>
-        </div>
-        <div class="hud-group">
           <div class="level-chip">
             ${levelText} · ${this._size}×${this._size} · ${m}:${s}
           </div>
+        </div>
+        <div class="hud-group">
           <button
             class="ghost"
             part="button"
             @click=${this._resetBoard}
             aria-label=${this.t('octafort.resetAria')}
           >${this.t('octafort.reset')}</button>
+          ${this._renderSettings()}
         </div>
       </div>
     `;
@@ -1093,11 +1101,7 @@ export class OctafortGame extends Localized(LitElement) {
 
   private _renderIdle() {
     return html`
-      <div class="overlay-top">
-        ${renderLanguagePicker(this.locale)}
-        ${this._renderThemeToggle()}
-        <slot name="host-controls"></slot>
-      </div>
+      <div class="overlay-top">${this._renderSettings()}</div>
       <div class="overlay">
         <div class="emoji">🏰</div>
         <h2>${this.t('octafort.title')}</h2>
@@ -1136,7 +1140,7 @@ export class OctafortGame extends Localized(LitElement) {
           <div class="emoji">${isGameComplete ? '🏆' : '🏰'}</div>
           <h2>${this.t(isGameComplete ? 'common.congrats' : 'octafort.safe')}</h2>
           <div class="stats-row">
-            <div class="stat-card ${this._lastResultIsBest ? 'is-best' : ''}">
+            <div class="stat-card">
               <span class="stat-icon">⏱️</span>
               <span class="stat-value">${m}:${s}</span>
               <span class="stat-label">${this.t('common.time')}</span>
